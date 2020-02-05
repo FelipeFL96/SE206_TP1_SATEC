@@ -10,7 +10,7 @@ class Node(object):
     '''Base class for circuit nodes'''
 
     __nextid__ = 0
-    
+
     def __init__(self):
         self.kids = []
         self.id = Node.__nextid__
@@ -21,11 +21,11 @@ class Node(object):
 
     def __hash__(self):
         return hash(7879 + self.id) * hash(type(self))
-        
+
     def getID(self):
         '''Get unique node id (as int)'''
         return self.id
-        
+
     def getChildren(self):
         '''Get child nodes of this node'''
         return self.kids
@@ -37,7 +37,7 @@ class Node(object):
     def setChild(self, i, nd):
         '''Set i-th child of this node'''
         self.kids[i] = nd
-        
+
     def support(self):
         return set()
 
@@ -45,7 +45,7 @@ class Literal(Node):
     '''A circuit node representing a constant Boolean value, which is
     either True or False.
     '''
-    
+
     def __init__(self, b):
         Node.__init__(self)
         self.value = b
@@ -62,7 +62,7 @@ class Literal(Node):
 
     def support(self):
         return set()
-        
+
 class Variable(Node):
     '''A circuit node representing a named internal or input signal.'''
 
@@ -93,7 +93,7 @@ class OpNode(Node):
 
 class BinOp(OpNode):
     '''A circuit node representing a binary logic gate.'''
-    
+
     def __init__(self, f, opstr, x, y):
         Node.__init__(self)
         self.kids = [x, y]
@@ -129,10 +129,10 @@ class UnOp(OpNode):
     def support(self):
         return self.getChild(0).support()
 
-    
+
 class Circuit(object):
     '''Class representing a logic circuit.'''
-    
+
     def __init__(self, name, inputs, outputs, eqs):
         self.name = name
         self.inputs = {x.name for x in inputs}
@@ -165,7 +165,7 @@ class Circuit(object):
             for y in ys:
                 if not y in signals:
                     raise BrokenCircuitException("Undefined signal '%s'" % y)
-                    
+
         # Check that there are no combinational loops in the circuit
         for x in deps.keys():
             stack = []
@@ -188,7 +188,7 @@ class Circuit(object):
         # Collapse non-fanout nodes
         signals = self.outputs | self.equations.keys() | self.inputs
         fanout = {s: set() for s in signals}
-        deps = {x: self.equations[x].support() for x in self.equations.keys()}        
+        deps = {x: self.equations[x].support() for x in self.equations.keys()}
         for x, ys in deps.items():
             for y in ys:
                 fanout[y].add(x)
@@ -245,7 +245,7 @@ class Circuit(object):
         print ("======================")
         for s in dead:
             del self.equations[s]
-                        
+
     def getInputs(self):
         '''Returns the set of input identifiers.
         '''
@@ -279,7 +279,7 @@ class Circuit(object):
         '''
 
         value = {i: x for (i,x) in inputs.items()}
-        
+
         def sim(node):
             if type(node) == Literal:
                 return node.value
@@ -310,12 +310,12 @@ class Circuit(object):
         s = 'digraph %s {\n' % self.name
         s += '  rankdir="LR";\n'
         for x in self.getInputs():
-            s += '  %s [label=\"%s\", shape=circle];\n' % (x, x)        
+            s += '  %s [label=\"%s\", shape=circle];\n' % (x, x)
         for x in self.getOutputs():
             s += '  %s [label=\"%s\", shape=diamond];\n' % (x, x)
         signals = [x for x in self.getSignals() if not x in self.getOutputs()]
         for x in signals:
-            s += '  %s [label=\"%s\", shape=hexagon];\n' % (x, x)        
+            s += '  %s [label=\"%s\", shape=hexagon];\n' % (x, x)
         drawn = dict()
         def draw(nd):
             if nd in drawn.keys():
@@ -354,7 +354,7 @@ class Circuit(object):
             s += '  %s -> %s' % (drawn[e], x)
         s += '}'
         return s
-    
+
     def __repr__(self):
         s = 'circ %s {\n' % self.name
         s += '\tinputs: %s\n' % ', '.join(sorted(self.inputs))
@@ -377,10 +377,11 @@ import token
 # FIXME: There seems to be an inconsistency between the token.type and
 # the type constants defined in token!
 MY_NEWLINE = 58
+MY_NEWLINE2 = 56
 
 def tokenize(s):
     return [t for t in  generate_tokens(StringIO(s).readline)
-            if t.type not in [token.ENDMARKER, token.NEWLINE, MY_NEWLINE]]
+            if t.type not in [token.ENDMARKER, token.NEWLINE, MY_NEWLINE, MY_NEWLINE2]]
 
 def tokval(tok):
     return tok.string
@@ -482,7 +483,7 @@ def assemble(x, y):
     else:
         return [x, y]
 
-# Currying 
+# Currying
 unarg = lambda f: lambda x: f(*x)
 
 # Curried functors for evaluation functions and constructors
