@@ -59,6 +59,7 @@ def test_adder():
         complete = True
         if (not sat):
             r += red + '-  -' + normal + ' [UNSAT]'
+            good = False
         else:
             if not ('cout' in sat.keys()):
                 r += red
