@@ -181,26 +181,17 @@ def transform(c: Circuit, prefix: str='') -> Cnf:
 
     '''
     inputs.clear()
-    outputs.clear()
     internals.clear()
     signals.clear()
     solution = Cnf()
 
     #Filling input dictionary
     for in_str in c.getInputs():
-        inputs[in_str] = SatVar(in_str)
+        inputs[in_str] = SatVar(prefix + in_str)
 
-    #Filling signals dictionary
+    #Filling signals dictionary (outputs and internal signals)
     for sig_str in c.getSignals():
-        signals[sig_str] = SatVar(sig_str)
-
-    #Filling output signal dictionary
-    for out_str in c.getOutputs():
-        outputs[out_str] = SatVar(out_str)
-
-    for out_str in c.getOutputs():
-        node = c.getEquation(out_str)
-        solution = solution & transform_node(node, outputs[out_str], c)
+        signals[sig_str] = SatVar(prefix + sig_str)
 
     for sig_str in c.getSignals():
         node = c.getEquation(sig_str)
