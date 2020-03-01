@@ -121,7 +121,7 @@ def transform(c: Circuit, prefix: str='') -> Cnf:
 
     # Filling input dictionary
     for in_str in c.getInputs():
-        inputs[in_str] = SatVar(in_str)
+        inputs[in_str] = SatVar(prefix + in_str)
 
     # Filling signals dictionary (outputs and internal signals)
     for sig_str in c.getSignals():

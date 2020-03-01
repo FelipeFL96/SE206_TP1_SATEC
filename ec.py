@@ -8,6 +8,7 @@ from circuit.circuit import Circuit
 from transform import transform
 from transform import gate_xor
 from transform import gate_or
+from transform import equivalent
 
 # Implementation hints:
 #
@@ -24,29 +25,42 @@ from transform import gate_or
 #
 # 3) Run the test script to see if your code works!
 
-def createMiter(outputs: set, prefix1: str, prefix2: str) -> (Cnf, SatVar):
-    '''The function createMiter takes the common outputs of the circuits being checked,
+def createInputCnf(inputs: set, prefix1: str, prefix2: str) -> Cnf:
+    '''The fucntion createInputCnf takes the common inputs of the circuits being checked,
+    taking into account their different prefixes, and builds the input connections required
+    by the miter circuit logic. Its output is the cnf representing these connections
+    '''
+    inputCnf = Cnf()
+
+    for i in inputs:
+        inputCnf &= equivalent(SatVar(i), SatVar(prefix1 + i))
+        inputCnf &= equivalent(SatVar(i), SatVar(prefix2 + i))
+
+    return inputCnf
+
+def createComparatorCnf(outputs: set, prefix1: str, prefix2: str) -> (Cnf, SatVar):
+    '''The function createComparatorCnf takes the common outputs of the circuits being checked,
     taking into account their differente prefixes, and builds the output miter logic
     with its XOR and OR gates. Its output is both the miter output CNF and the SatVar
     variable for the miter output symbol
     '''
-    #Generation of XOR gates for miter circuit output
+    # Generation of XOR gates for miter circuit output
     comparator = Cnf()
-    miter_signals = []
+    comp_signals = []
     i = 0
     for output in outputs:
         xor_i = SatVar('xor_' + str(i))
         output1 = SatVar(prefix1 + output)
         output2 = SatVar(prefix2 + output)
         comparator &= gate_xor(output1, output2, xor_i)
-        miter_signals.append(xor_i)
+        comp_signals.append(xor_i)
         i += 1
 
-    #Generation of OR gates for miter circuit output
+    # Generation of OR gates for miter circuit output
     or_neutral = SatVar('or_neutral')
     comparator &= (~or_neutral)
     i = 0
-    for xor_i in miter_signals:
+    for xor_i in comp_signals:
         out = SatVar('or_' + str(i))
         curr = xor_i
         if i == 0:
@@ -86,13 +100,15 @@ def check(c1: Circuit, c2: Circuit) -> (bool, Solution):
     cnf1 = transform(c1, prefix1)
     cnf2 = transform(c2, prefix2)
 
+    # Generating connection among correspondent inputs
+    inputConnections = createInputCnf(inputs1, prefix1, prefix2)
+
     # Generating comparison logic for miter circuit
-    comparator, out = createMiter(outputs1, prefix1, prefix2)
+    comparator, out = createComparatorCnf(outputs1, prefix1, prefix2)
 
     # Composition of the miter circuit
-    miter = cnf1 & cnf2 & comparator & (out)
+    miter = inputConnections & cnf1 & cnf2 & comparator & out
 
-    #« Connecter » les entrées correspondantes (comment exprimer cela en CNF?)
     # CNF SAT solving
     solver = Solver()
     solution = solver.solve(miter)
