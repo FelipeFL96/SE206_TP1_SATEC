@@ -25,13 +25,13 @@ s0 = SatVar('s0')
 s1 = SatVar('s1')
 s2 = SatVar('s2')
 
-def gate_and(in1, in2, out) -> Cnf :
+def gate_and(in1: SatVar, in2: SatVar, out: SatVar) -> Cnf :
     return (~in1|~in2|out) & (in1|~out) & (in2|~out)
 
-def gate_or(in1, in2, out) -> Cnf :
+def gate_or(in1: SatVar, in2: SatVar, out: SatVar) -> Cnf :
     return (in1|in2|~out) & (~in1|out) & (~in2|out)
 
-def gate_xor(in1, in2, out) -> Cnf :
+def gate_xor(in1: SatVar, in2: SatVar, out: SatVar) -> Cnf :
     return (~in1|~in2|~out) & (in1|in2|~out) & (in1|~in2|out) & (~in1|in2|out)
 
 
