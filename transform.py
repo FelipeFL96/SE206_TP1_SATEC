@@ -39,109 +39,26 @@ outputs = dict()
 signals = dict()
 internals = dict()
 
-def equals(in1, out) -> Cnf:
-    if isinstance(in1, bool):
-        if in1:
-            return (out)
-        else:
-            return (~out)
+def equivalent(in1: SatVar, out: SatVar) -> Cnf:
     return (~in1 | out) & (in1 | ~out)
 
-def gate_not(in1, out) -> Cnf:
-    if isinstance(in1, bool):
-        if in1:
-            return (~out)
-        else:
-            return (out)
+def gate_not(in1: SatVar, out: SatVar) -> Cnf:
     return (~in1|~out) & (in1|out)
 
-def gate_and(in1, in2, out) -> Cnf :
-    if isinstance(in1, bool) and isinstance(in2, bool):
-        if in1 and in2:
-            return (out)
-        else:
-            return (~out)
-    if isinstance(in1, bool):
-        if (in1):
-            return (~in2|out) & (in2|~out)
-        else:
-            return (in2|~out) & (~out)
-    if isinstance(in2, bool):
-        if (in2):
-            return (~in1|out) & (in1|~out)
-        else:
-            return (in1|~out) & (~out)
+def gate_and(in1: SatVar, in2: SatVar, out: SatVar) -> Cnf:
     return (~in1|~in2|out) & (in1|~out) & (in2|~out)
 
-def gate_or(in1, in2, out) -> Cnf :
-    if isinstance(in1, bool) and isinstance(in2, bool):
-        if not(in1) and not(in2):
-            return (~out)
-        else:
-            return (out)
-    if isinstance(in1, bool):
-        if (in1):
-            return  (out) & (~in2|out)
-        else:
-            return (in2|~out) & (~in2|out)
-    if isinstance(in2, bool):
-        if (in2):
-            return (~out) & (~in1|out)
-        else:
-            return (in1|~out) & (~in1|out)
+def gate_or(in1: SatVar, in2: SatVar, out: SatVar) -> Cnf:
     return (in1|in2|~out) & (~in1|out) & (~in2|out)
 
-def gate_xor(in1, in2, out) -> Cnf :
-    if isinstance(in1, bool) and isinstance(in2, bool):
-        if in1 == in2:
-            return (~out)
-        else:
-            return (out)
-    if isinstance(in1, bool):
-        if (in1):
-            return (~in2|~out) & (in2|out)
-        else:
-            return (in2|~out) & (~in2|out)
-    if isinstance(in2, bool):
-        if (in2):
-            return (~in1|~out) & (in1|out)
-        else:
-            return (in1|~out) & (~in1|out)
+def gate_xor(in1: SatVar, in2: SatVar, out: SatVar) -> Cnf:
     return (~in1|~in2|~out) & (in1|in2|~out) & (in1|~in2|out) & (~in1|in2|out)
-
-def isLiteral(n: Node, c: Circuit) -> bool:
-    if isinstance(n, Literal):
-        return True
-    elif isinstance(n, Variable):
-        if n.getName() in inputs:
-            return False
-        return isLiteral(c.getEquation(n.getName()), c)
-    elif isinstance(n, UnOp):
-        return isLiteral(n.getChild(0), c)
-    elif isinstance(n, BinOp):
-        return isLiteral(n.getChild(0), c) and isLiteral(n.getChild(1), c)
-
-def getLiteralValue(n: Node, c: Circuit) -> bool:
-    if isinstance(n, Literal):
-        return n.getValue()
-    elif isinstance(n, Variable):
-        if n.getName() in inputs:
-            return False
-        return getLiteralValue(c.getEquation(n.getName()), c)
-    elif isinstance(n, UnOp):
-        return getLiteralValue(n.getChild(0), c)
-    elif isinstance(n, BinOp):
-        return getLiteralValue(n.getChild(0), c) and getLiteralValue(n.getChild(1), c)
 
 def getSatVar(v: Variable, c: Circuit) -> SatVar:
     if v.getName() in inputs:
         return inputs[v.getName()]
     elif v.getName() in signals:
-        if isLiteral(v, c):
-            return getLiteralValue(v, c)
-        else:
-            return signals[v.getName()]
-
+        return signals[v.getName()]
 
 def transform_node(n: Node, out: SatVar, c: Circuit) -> Cnf:
     '''The function transformNode recursively analyses the nodes objects it receives and 
@@ -150,11 +67,16 @@ def transform_node(n: Node, out: SatVar, c: Circuit) -> Cnf:
     '''
     cnf = Cnf()
 
-    # Child nodes analysis
+    # Child nodes analysis for operation nodes
     children = []
     for child in n.getChildren():
         if isinstance(child, Literal):
-            children.append(child.getValue())
+            lit = SatVar('l_' + str(child.getID()))
+            children.append(lit)
+            if child.getValue() == True:
+                cnf &= lit
+            else:
+                cnf &= ~lit
         elif isinstance(child, Variable):
             children.append(getSatVar(child, c))
         elif isinstance(child, OpNode):
@@ -162,19 +84,27 @@ def transform_node(n: Node, out: SatVar, c: Circuit) -> Cnf:
             children.append(internals[child.getID()])
             cnf = cnf & transform_node(child, internals[child.getID()], c)
 
-    # CNF building for operation nodes
-    if len(children) == 2:
-        if n.getOp() == '&':
-            cnf = cnf & gate_and(children[0], children[1], out)
-        elif n.getOp() == '|':
-            cnf = cnf & gate_or(children[0], children[1], out)
-        elif n.getOp() == '^':
-            cnf = cnf & gate_xor(children[0], children[1], out)
-    elif len(children) == 1:
-        if n.getOp() == '~':
-            cnf = cnf & gate_not(children[0], out)
+    # CNF building
+    if isinstance(n, OpNode):
+        if len(children) == 1:
+            if n.getOp() == '~':
+                cnf &= gate_not(children[0], out)
+        elif len(children) == 2:
+            if n.getOp() == '&':
+                cnf &= gate_and(children[0], children[1], out)
+            elif n.getOp() == '|':
+                cnf &= gate_or(children[0], children[1], out)
+            elif n.getOp() == '^':
+                cnf &= gate_xor(children[0], children[1], out)
     elif isinstance(n, Variable):
-            cnf = cnf & equals(signals[n.getName()], out)
+            cnf &= equivalent(signals[n.getName()], out)
+    elif isinstance(n, Literal):
+            lit = SatVar('l_' + str(n.getID()))
+            cnf &= equivalent(lit, out)
+            if n.getValue() == True:
+                cnf &= lit
+            else:
+                cnf &= ~lit
 
     return cnf
 
