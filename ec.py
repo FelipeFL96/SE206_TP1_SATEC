@@ -66,27 +66,28 @@ def binrow(num: int, n: int) -> list:
         fat //= 2
     return tab
 
-def createMiter(outputs: set, prefix1: str, prefix2: str) -> Cnf:
+def createMiter(outputs: set, prefix1: str, prefix2: str) -> (Cnf, SatVar):
     comparator = Cnf()
     miter_signals = []
-
     i = 0
     for output in outputs:
-        comparator &= gate_xor(SatVar(prefix1 + output), SatVar(prefix2 + output), SatVar('m_' + str(i)))
-        miter_signals.append('m_' + str(i))
+        xor_i = SatVar('xor_' + str(i))
+        output1 = SatVar(prefix1 + output)
+        output2 = SatVar(prefix2 + output)
+        comparator &= gate_xor(output1, output2, xor_i)
+        miter_signals.append(xor_i)
         i += 1
-
     i = 0
     or_neutral = SatVar('or_neutral')
     comparator &= (~or_neutral)
-    for m_i in miter_signals:
+    for xor_i in miter_signals:
         out = SatVar('or_' + str(i))
-        m = SatVar(m_i)
+        curr = xor_i
         if i == 0:
-            comparator &= gate_or(or_neutral, m, out)
+            comparator &= gate_or(or_neutral, xor_i, out)
         else:
             prev = SatVar('or_' + str(i-1))
-            comparator &= gate_or(prev, m, out)
+            comparator &= gate_or(prev, xor_i, out)
         i += 1
     return comparator, out
 
@@ -142,11 +143,12 @@ def check(c1: Circuit, c2: Circuit) -> (bool, Solution):
     comparator, out = createMiter(outputs1, prefix1, prefix2)
 
     #rajouter une contrainte sur la sortie pour la forcer à 1 (comment exprimer cette contrainte en CNF?).
-    miter = cnf1 & cnf2 & comparator & (~out)
+    miter = cnf1 & cnf2 & comparator & (out)
 
     #« Connecter » les entrées correspondantes (comment exprimer cela en CNF?)
     solver = Solver()
     tests = createTests(inputs1)
+
     for test in tests:
         testCnf = setInputs(miter, test, prefix1, prefix2)
         solution = solver.solve(testCnf)
