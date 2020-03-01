@@ -37,7 +37,6 @@ from circuit.circuit import Literal
 inputs = dict()
 outputs = dict()
 signals = dict()
-internals = dict()
 
 def equivalent(in1: SatVar, out: SatVar) -> Cnf:
     return (~in1 | out) & (in1 | ~out)
@@ -53,12 +52,6 @@ def gate_or(in1: SatVar, in2: SatVar, out: SatVar) -> Cnf:
 
 def gate_xor(in1: SatVar, in2: SatVar, out: SatVar) -> Cnf:
     return (~in1|~in2|~out) & (in1|in2|~out) & (in1|~in2|out) & (~in1|in2|out)
-
-def getSatVar(v: Variable, c: Circuit) -> SatVar:
-    if v.getName() in inputs:
-        return inputs[v.getName()]
-    elif v.getName() in signals:
-        return signals[v.getName()]
 
 def transform_node(n: Node, out: SatVar, c: Circuit) -> Cnf:
     '''The function transformNode recursively analyses the nodes objects it receives and 
@@ -78,11 +71,15 @@ def transform_node(n: Node, out: SatVar, c: Circuit) -> Cnf:
             else:
                 cnf &= ~lit
         elif isinstance(child, Variable):
-            children.append(getSatVar(child, c))
+            if child.getName() in inputs:
+                var = inputs[child.getName()]
+            elif child.getName() in signals:
+                var = signals[child.getName()]
+            children.append(var)
         elif isinstance(child, OpNode):
-            internals[child.getID()] = SatVar('y_' + str(child.getID()))
-            children.append(internals[child.getID()])
-            cnf = cnf & transform_node(child, internals[child.getID()], c)
+            internal = SatVar('y_' + str(child.getID()))
+            children.append(internal)
+            cnf &= transform_node(child, internal, c)
 
     # CNF building
     if isinstance(n, OpNode):
@@ -115,7 +112,6 @@ def transform(c: Circuit, prefix: str='') -> Cnf:
 
     '''
     inputs.clear()
-    internals.clear()
     signals.clear()
     solution = Cnf()
 
