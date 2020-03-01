@@ -25,6 +25,12 @@ from transform import gate_or
 # 3) Run the test script to see if your code works!
 
 def createMiter(outputs: set, prefix1: str, prefix2: str) -> (Cnf, SatVar):
+    '''The function createMiter takes the common outputs of the circuits being checked,
+    taking into account their differente prefixes, and builds the output miter logic
+    with its XOR and OR gates. Its output is both the miter output CNF and the SatVar
+    variable for the miter output symbol
+    '''
+    #Generation of XOR gates for miter circuit output
     comparator = Cnf()
     miter_signals = []
     i = 0
@@ -35,9 +41,11 @@ def createMiter(outputs: set, prefix1: str, prefix2: str) -> (Cnf, SatVar):
         comparator &= gate_xor(output1, output2, xor_i)
         miter_signals.append(xor_i)
         i += 1
-    i = 0
+
+    #Generation of OR gates for miter circuit output
     or_neutral = SatVar('or_neutral')
     comparator &= (~or_neutral)
+    i = 0
     for xor_i in miter_signals:
         out = SatVar('or_' + str(i))
         curr = xor_i
@@ -47,6 +55,7 @@ def createMiter(outputs: set, prefix1: str, prefix2: str) -> (Cnf, SatVar):
             prev = SatVar('or_' + str(i-1))
             comparator &= gate_or(prev, xor_i, out)
         i += 1
+
     return comparator, out
 
 def check(c1: Circuit, c2: Circuit) -> (bool, Solution):
@@ -66,23 +75,25 @@ def check(c1: Circuit, c2: Circuit) -> (bool, Solution):
     prefix1 = 'c1_'
     prefix2 = 'c2_'
 
+    # Checking for inequal number or names of inputs and outputs
     if (len(inputs1) != len(inputs2)) or (len(outputs1) != len(outputs2)):
         return False, None
     else:
         if (len(inputs1 - inputs2) != 0) or (len(outputs1 - outputs2) != 0):
             return False, None
 
-    #Faire une transformation Tseitin des deux circuits,
+    # Tseitin Transformation of the two circuits
     cnf1 = transform(c1, prefix1)
     cnf2 = transform(c2, prefix2)
 
-    #rajouter la logique de comparaison du miter, et
+    # Generating comparison logic for miter circuit
     comparator, out = createMiter(outputs1, prefix1, prefix2)
 
-    #rajouter une contrainte sur la sortie pour la forcer à 1 (comment exprimer cette contrainte en CNF?).
+    # Composition of the miter circuit
     miter = cnf1 & cnf2 & comparator & (out)
 
     #« Connecter » les entrées correspondantes (comment exprimer cela en CNF?)
+    # CNF SAT solving
     solver = Solver()
     solution = solver.solve(miter)
 

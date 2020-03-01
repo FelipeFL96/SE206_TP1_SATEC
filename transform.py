@@ -144,9 +144,13 @@ def getSatVar(v: Variable, c: Circuit) -> SatVar:
 
 
 def transform_node(n: Node, out: SatVar, c: Circuit) -> Cnf:
+    '''The function transformNode recursively analyses the nodes objects it receives and 
+    builds the corresponding CNF. Each step's output is its node's CNF so that the final
+    execution has the complete CNF for a given node.
+    '''
     cnf = Cnf()
 
-    # Obtenção dos nós filhos
+    # Child nodes analysis
     children = []
     for child in n.getChildren():
         if isinstance(child, Literal):
@@ -158,7 +162,7 @@ def transform_node(n: Node, out: SatVar, c: Circuit) -> Cnf:
             children.append(internals[child.getID()])
             cnf = cnf & transform_node(child, internals[child.getID()], c)
 
-    # Para operações binárias
+    # CNF building for operation nodes
     if len(children) == 2:
         if n.getOp() == '&':
             cnf = cnf & gate_and(children[0], children[1], out)
@@ -185,14 +189,15 @@ def transform(c: Circuit, prefix: str='') -> Cnf:
     signals.clear()
     solution = Cnf()
 
-    #Filling input dictionary
+    # Filling input dictionary
     for in_str in c.getInputs():
         inputs[in_str] = SatVar(in_str)
 
-    #Filling signals dictionary (outputs and internal signals)
+    # Filling signals dictionary (outputs and internal signals)
     for sig_str in c.getSignals():
         signals[sig_str] = SatVar(prefix + sig_str)
 
+    # Obtaining the CNFs for each signal (either intern or output)
     for sig_str in c.getSignals():
         node = c.getEquation(sig_str)
         solution = solution & transform_node(node, signals[sig_str], c)
