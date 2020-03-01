@@ -24,48 +24,6 @@ from transform import gate_or
 #
 # 3) Run the test script to see if your code works!
 
-def comparatorXorStage(prefix1: str, prefix2: str, signals: list) -> (Cnf, list):
-    i = 0
-    xor_cnf = Cnf()
-    xor_outputs = []
-    for sig in signals:
-        xor_cnf &= gate_xor(SatVar(prefix1 + sig), SatVar(prefix2 + sig), SatVar('xor_' + str(i)))
-        xor_outputs.append('xor_' + str(i))
-        i += 1
-    return xor_cnf, xor_outputs
-
-def comparatorOrStage(signals: list) -> (Cnf, SatVar):
-    i = 0
-    or_cnf = Cnf()
-    or_cnf &= (~SatVar('false'))
-
-    for sig in signals:
-        out = SatVar('or_' + str(i))
-        m = SatVar(sig)
-        if i == 0:
-            or_cnf &= gate_or(SatVar('false'), m, out)
-        else:
-            prev = SatVar('or_' + str(i-1))
-            or_cnf &= gate_or(prev, m, out)
-        i += 1
-    return or_cnf, out
-
-def comparator(prefix1: str, prefix2: str, circuit_outputs: list) -> (Cnf, SatVar):
-    xor_cnf, out_sigs = comparatorXorStage(prefix1, prefix2, circuit_outputs)
-    or_cnf, miter_out = comparatorOrStage(out_sigs)
-    return xor_cnf & or_cnf, miter_out
-
-def binrow(num: int, n: int) -> list:
-    fat = num
-    tab = []
-    for i in range(0,n):
-        if fat%2 == 0:
-            tab.insert(0, False)
-        else:
-            tab.insert(0, True)
-        fat //= 2
-    return tab
-
 def createMiter(outputs: set, prefix1: str, prefix2: str) -> (Cnf, SatVar):
     comparator = Cnf()
     miter_signals = []
@@ -90,27 +48,6 @@ def createMiter(outputs: set, prefix1: str, prefix2: str) -> (Cnf, SatVar):
             comparator &= gate_or(prev, xor_i, out)
         i += 1
     return comparator, out
-
-def createTests(inputs: set()) -> list:
-    tests = []
-    n = len(inputs)
-
-    for i in range(0, 2**n):
-        b = binrow(i, n)
-        row = dict()
-        for (inputStr, value) in zip(inputs, b):
-            row[inputStr] = value
-        tests.append(row)
-    return tests
-
-def setInputs(cnf: Cnf, values: dict, prefix1: str, prefix2: str) -> Cnf:
-    setCnf = Cnf()
-    for v in values:
-        if values[v] == False:
-            setCnf = cnf & (~SatVar(prefix1+v)) & (~SatVar(prefix2+v))
-        else:
-            setCnf = cnf & (SatVar(prefix1+v)) & (SatVar(prefix2+v))
-    return setCnf
 
 def check(c1: Circuit, c2: Circuit) -> (bool, Solution):
     '''The function check() takes two Circuits as input and performs an equivalence
@@ -147,14 +84,10 @@ def check(c1: Circuit, c2: Circuit) -> (bool, Solution):
 
     #« Connecter » les entrées correspondantes (comment exprimer cela en CNF?)
     solver = Solver()
-    tests = createTests(inputs1)
+    solution = solver.solve(miter)
 
-    for test in tests:
-        testCnf = setInputs(miter, test, prefix1, prefix2)
-        solution = solver.solve(testCnf)
-        if solution:
-            return False, solution
-
+    if solution:
+        return False, solution
     return True, None
 
     pass
